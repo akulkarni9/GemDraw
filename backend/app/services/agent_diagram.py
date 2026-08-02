@@ -157,13 +157,23 @@ def create_relation(
 # Agents                                                                       #
 # --------------------------------------------------------------------------- #
 def _model() -> LiteLlm:
-    return LiteLlm(
-        model=f"ollama_chat/{settings.ollama_model}",
-        api_base=settings.ollama_base_url,
-        temperature=settings.ollama_temperature,
-        num_ctx=settings.ollama_num_ctx,
-        num_predict=settings.ollama_num_predict,
-    )
+    # Provider-agnostic via LiteLLM. The model id encodes the provider
+    # (e.g. ollama_chat/…, openai/…, anthropic/…, gemini/…). Ollama uses its own
+    # context/predict knobs; hosted providers use max_tokens.
+    kwargs: dict[str, Any] = {
+        "model": settings.resolved_model,
+        "temperature": settings.resolved_temperature,
+    }
+    if settings.resolved_api_base:
+        kwargs["api_base"] = settings.resolved_api_base
+    if settings.llm_api_key:
+        kwargs["api_key"] = settings.llm_api_key
+    if settings.is_ollama_provider:
+        kwargs["num_ctx"] = settings.ollama_num_ctx
+        kwargs["num_predict"] = settings.ollama_num_predict
+    else:
+        kwargs["max_tokens"] = settings.resolved_max_output_tokens
+    return LiteLlm(**kwargs)
 
 
 def _planner() -> BuiltInPlanner:

@@ -70,12 +70,22 @@ Loaded by `app/config.py` from `backend/.env` (all env-overridable):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | *(required)* | `postgresql+asyncpg://user:pass@host:5432/db` |
+| `LLM_MODEL` | *(unset)* | Full LiteLLM model id for any provider, e.g. `openai/gpt-4o`, `anthropic/claude-3-5-sonnet-latest`, `gemini/gemini-2.0-flash`, `ollama_chat/qwen2.5:14b`. Unset → `ollama_chat/{OLLAMA_MODEL}`. Must support tool calling |
+| `LLM_API_KEY` | *(unset)* | API key for hosted providers (not needed for Ollama) |
+| `LLM_API_BASE` | *(unset)* | Optional endpoint override (OpenAI-compatible servers) |
+| `LLM_TEMPERATURE` | `0.2` | Sampling temperature (used when `LLM_MODEL` is set) |
+| `LLM_MAX_OUTPUT_TOKENS` | `0` | Max output tokens for non-Ollama providers (0 → `OLLAMA_NUM_PREDICT`) |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
-| `OLLAMA_MODEL` | `gemma4:26b` | Model tag (used as `ollama_chat/<model>`) |
+| `OLLAMA_MODEL` | `gemma4:26b` | Ollama model tag (used as `ollama_chat/<model>` when `LLM_MODEL` is unset) |
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower = more deterministic layouts |
 | `OLLAMA_NUM_PREDICT` | `16384` | Max generation tokens (forwarded to Ollama) |
 | `OLLAMA_NUM_CTX` | `131072` | Context window (forwarded to Ollama) |
 | `CORS_ORIGINS` | `""` | Comma-separated extra browser origins allowed by CORS (localhost/127.0.0.1 on any port are always allowed) |
+
+> **Switching providers is env-only** — set `LLM_MODEL` (+ `LLM_API_KEY`). The
+> `_model()` factory in `agent_diagram.py` builds provider-appropriate LiteLLM
+> kwargs (Ollama gets `num_ctx`/`num_predict`; others get `max_tokens`). The only
+> hard requirement is tool/function-calling support.
 
 > **Deployment / reaching a host Ollama from a container:** set `OLLAMA_BASE_URL`
 > to the address your Docker runtime exposes the host at — `http://host.docker.internal:11434`

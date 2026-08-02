@@ -245,12 +245,22 @@ Backend settings live in `backend/.env` (loaded by `app/config.py`, all env-over
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | *(required)* | `postgresql+asyncpg://user:pass@host:5432/db` |
+| `LLM_MODEL` | *(unset)* | Full LiteLLM model id for **any** provider, e.g. `openai/gpt-4o`, `anthropic/claude-3-5-sonnet-latest`, `gemini/gemini-2.0-flash`, `ollama_chat/qwen2.5:14b`. If unset, falls back to `ollama_chat/{OLLAMA_MODEL}`. Model **must support tool calling** |
+| `LLM_API_KEY` | *(unset)* | API key for hosted providers (not needed for Ollama) |
+| `LLM_API_BASE` | *(unset)* | Optional endpoint override (e.g. an OpenAI-compatible server) |
+| `LLM_TEMPERATURE` | `0.2` | Sampling temperature (used when `LLM_MODEL` is set) |
+| `LLM_MAX_OUTPUT_TOKENS` | `0` | Max output tokens for non-Ollama providers (0 = fall back to `OLLAMA_NUM_PREDICT`) |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
-| `OLLAMA_MODEL` | `gemma4:26b` | Model tag (used as `ollama_chat/<model>`) |
+| `OLLAMA_MODEL` | `gemma4:26b` | Ollama model tag (used as `ollama_chat/<model>` when `LLM_MODEL` is unset) |
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower = more deterministic layouts |
 | `OLLAMA_NUM_PREDICT` | `16384` | Max generation tokens (forwarded to Ollama) |
 | `OLLAMA_NUM_CTX` | `131072` | Context window (forwarded to Ollama) |
 | `CORS_ORIGINS` | `""` | Comma-separated extra browser origins allowed by CORS (localhost/127.0.0.1 on any port are always allowed) |
+
+> **Switching providers is env-only.** The model layer is provider-agnostic via
+> LiteLLM — set `LLM_MODEL` (+ `LLM_API_KEY`) and the whole ADK builder→critic
+> pipeline runs against that model, no code changes. The only hard requirement is
+> **tool/function-calling support**.
 
 ---
 
