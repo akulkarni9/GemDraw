@@ -54,7 +54,7 @@ Everything runs on your own machine. No cloud LLM, no API keys.
 
 ![GemDraw LLD UML class diagram](docs/images/lld.png)
 
-> Screenshots live in [`docs/images/`](docs/images/). See that folder's README for how to capture/replace them.
+> Screenshots live in [`docs/images/`](docs/images/).
 
 ---
 
