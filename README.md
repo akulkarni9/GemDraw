@@ -9,6 +9,7 @@ Everything runs on your own machine. No cloud LLM, no API keys.
 ## Table of contents
 
 - [What it does](#what-it-does)
+- [Screenshots](#screenshots)
 - [How it works](#how-it-works)
   - [The agentic core (Google ADK + Gemma 4 26B)](#the-agentic-core-google-adk--gemma-4-26b)
   - [How Google ADK helps Gemma 4 26B](#how-google-adk-helps-gemma-4-26b)
@@ -40,6 +41,20 @@ Everything runs on your own machine. No cloud LLM, no API keys.
 - **Refine.** Send follow-up prompts to edit an existing diagram; ids are reused so changes are incremental.
 - **Live rendering.** Drawing commands stream over Server-Sent Events and appear on the canvas as the model produces them.
 - **Persistence.** Diagrams, their parent/child relationships, and prompt history are saved in Postgres.
+
+---
+
+## Screenshots
+
+**High-level design (HLD)** — describe a system and get a labelled, connected architecture:
+
+![GemDraw HLD architecture diagram](docs/images/hld.png)
+
+**Low-level design (LLD)** — double-click any component to drill down into an auto-generated UML class diagram:
+
+![GemDraw LLD UML class diagram](docs/images/lld.png)
+
+> Screenshots live in [`docs/images/`](docs/images/). See that folder's README for how to capture/replace them.
 
 ---
 
