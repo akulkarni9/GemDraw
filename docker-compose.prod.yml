@@ -2,8 +2,17 @@
 #
 # Deploy this as a single "Docker Compose" resource in Coolify. It builds the
 # backend and frontend images and runs Postgres alongside them. Ollama is NOT
-# included here because the Gemma model needs a GPU host — point OLLAMA_BASE_URL
-# at your Ollama instance (a GPU box, or an ollama service you run separately).
+# containerized here — it runs natively on the host (e.g. Ollama.app on an Apple
+# Silicon Mac, using the Metal GPU). The backend reaches it via the host address
+# in OLLAMA_BASE_URL.
+#
+# IMPORTANT — reaching the host's Ollama depends on your Docker runtime:
+#   * Docker Desktop:            http://host.docker.internal:11434
+#   * Rancher Desktop / Lima:    http://192.168.5.2:11434  (the VM's host gateway)
+#   * Colima:                    http://192.168.5.2:11434  (usually the same)
+# The default below targets Rancher Desktop/Lima. Override OLLAMA_BASE_URL for
+# other runtimes. Also ensure Ollama is bound to all interfaces on the host:
+#   OLLAMA_HOST=0.0.0.0:11434 ollama serve
 #
 # In Coolify: set the environment variables below, expose the `frontend` service
 # on your domain, and let Coolify's proxy terminate HTTPS.
@@ -28,10 +37,17 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    # Make host.docker.internal resolve on Linux too (Docker Desktop provides it
+    # automatically on macOS/Windows).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # asyncpg driver URL built from the Postgres service above.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:?set OLLAMA_BASE_URL to your Ollama host}
+      # Reach the host's native Ollama (running Gemma 4 26B on the Mac's GPU).
+      # Default targets Rancher Desktop/Lima (192.168.5.2). For Docker Desktop
+      # use http://host.docker.internal:11434 instead.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://192.168.5.2:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:26b}
       OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.2}
       OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-16384}

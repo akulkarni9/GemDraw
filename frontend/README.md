@@ -19,6 +19,8 @@ React + TypeScript single-page app that renders AI-generated architecture diagra
 ```
 frontend/
 ├── vite.config.ts             # dev server (:5173) + /api proxy
+├── Dockerfile                 # multi-stage build → nginx (production)
+├── nginx.conf                 # SPA fallback + SSE-safe /api proxy
 ├── package.json
 └── src/
     ├── main.tsx               # entry point
@@ -65,11 +67,19 @@ Vite proxies `/api` to the backend. Override the target with an env var if the b
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_TARGET` | `http://localhost:8008` | Backend base URL for the `/api` proxy |
+| `VITE_API_TARGET` | `http://localhost:8008` | Backend base URL for the dev-server `/api` proxy |
+| `VITE_API_BASE` | `/api` | API base path baked in at **build** time (build arg in the Dockerfile) |
 
 ```bash
 VITE_API_TARGET=http://localhost:9000 npm run dev
 ```
+
+### Production build
+
+The `Dockerfile` builds the SPA and serves it with nginx, which also proxies
+`/api` to the `backend` service with SSE-safe settings (buffering off, long read
+timeouts). It's built and run as part of `docker-compose.prod.yml` — see the
+[root README Deployment section](../README.md#deployment).
 
 ---
 

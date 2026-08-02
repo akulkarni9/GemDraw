@@ -118,11 +118,12 @@ Every tool call is appended to a per-request collector (a `ContextVar`), which t
 
 **Frontend**
 - React + TypeScript
-- tldraw v3 (canvas + custom shapes)
+- tldraw v2 (canvas + custom shapes)
 - Vite (dev server + proxy)
 
 **Infra**
-- Docker Compose (Postgres + Ollama)
+- Docker Compose (dev: Postgres + Ollama)
+- Production stack (`docker-compose.prod.yml`): containerized backend + nginx-served frontend + Postgres, with Ollama running natively on the host GPU. Deployable to [Coolify](https://coolify.io/) or any Docker host.
 
 ---
 
@@ -130,14 +131,17 @@ Every tool call is appended to a per-request collector (a `ContextVar`), which t
 
 ```
 GemDraw/
-├── docker-compose.yml        # Postgres + Ollama services
-├── .env / .env.example       # docker-compose secrets (POSTGRES_*)
+├── docker-compose.yml        # DEV: Postgres + Ollama services
+├── docker-compose.prod.yml   # PROD: backend + frontend + Postgres (Ollama on host)
+├── .env / .env.example       # docker-compose secrets (POSTGRES_*), OLLAMA_*
+├── .env.prod.example         # production stack env template
 ├── backend/
 │   ├── requirements.txt
+│   ├── Dockerfile            # production backend image
 │   ├── .env / .env.example   # DATABASE_URL, OLLAMA_* settings
 │   └── app/
-│       ├── main.py           # FastAPI app, lifespan migrations, log config
-│       ├── config.py         # Settings (model, ctx, temperature…)
+│       ├── main.py           # FastAPI app, lifespan migrations, CORS, log config
+│       ├── config.py         # Settings (model, ctx, temperature, cors_origins…)
 │       ├── routes/
 │       │   ├── generate.py   # /generate SSE endpoint + canvas reduction/persistence
 │       │   └── diagrams.py   # CRUD + drilldown
@@ -150,6 +154,8 @@ GemDraw/
 │           ├── database.py   # async engine/session
 │           └── models.py     # Diagram, SessionEntry tables
 └── frontend/
+    ├── Dockerfile            # multi-stage build → nginx
+    ├── nginx.conf            # SPA + SSE-safe /api proxy
     └── src/
         ├── main.tsx
         ├── components/       # App, CanvasEngine, PromptBar, DiagramSidebar, Breadcrumb
@@ -244,10 +250,62 @@ Backend settings live in `backend/.env` (loaded by `app/config.py`, all env-over
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower = more deterministic layouts |
 | `OLLAMA_NUM_PREDICT` | `16384` | Max generation tokens (forwarded to Ollama) |
 | `OLLAMA_NUM_CTX` | `131072` | Context window (forwarded to Ollama) |
+| `CORS_ORIGINS` | `""` | Comma-separated extra browser origins allowed by CORS (localhost/127.0.0.1 on any port are always allowed) |
 
 ---
 
-## API reference
+## Deployment
+
+The repo ships a production stack in `docker-compose.prod.yml` that builds the
+backend and the nginx-served frontend and runs Postgres alongside them. **Ollama
+is not containerized** — a 26B model needs GPU access, so it runs **natively on
+the host** (e.g. Ollama.app / `ollama serve` on an Apple Silicon Mac using Metal).
+The backend reaches it over the network via `OLLAMA_BASE_URL`.
+
+```bash
+cp .env.prod.example .env.prod        # set POSTGRES_*, OLLAMA_BASE_URL, CORS_ORIGINS
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+The frontend container listens on port 80 (map it to your domain via a reverse
+proxy such as Coolify's). nginx serves the SPA and proxies `/api` to the backend
+with SSE-safe settings (`proxy_buffering off`, long read timeouts).
+
+### Reaching the host's Ollama from containers
+
+This is the one part that is environment-specific. Two things must be true:
+
+1. **Ollama must bind all interfaces**, not just loopback. Start it with:
+   ```bash
+   OLLAMA_HOST=0.0.0.0:11434 ollama serve
+   ```
+   > If the Ollama menu-bar app is running it binds `127.0.0.1` only and will
+   > block a proper `0.0.0.0` bind — quit it before starting the serve above.
+
+2. **`OLLAMA_BASE_URL` must point at the host address your container runtime
+   exposes**, which differs by runtime:
+
+   | Docker runtime | Host address for `OLLAMA_BASE_URL` |
+   |----------------|-------------------------------------|
+   | Docker Desktop (macOS/Windows) | `http://host.docker.internal:11434` |
+   | Rancher Desktop / Lima | `http://192.168.5.2:11434` (the VM's host gateway) |
+   | Colima | `http://192.168.5.2:11434` (usually the same) |
+   | Separate machine on your LAN | `http://<that-machine-ip>:11434` |
+
+   Verify from inside the backend container:
+   ```bash
+   docker compose -f docker-compose.prod.yml exec backend \
+     python -c "import os,httpx;print(httpx.get(os.environ['OLLAMA_BASE_URL']+'/api/tags').status_code)"
+   # expect: 200
+   ```
+
+### Coolify
+
+Deploy `docker-compose.prod.yml` as a single **Docker Compose** resource, set the
+environment variables from `.env.prod.example`, expose the `frontend` service on
+your domain, and let Coolify's proxy terminate HTTPS. Point `OLLAMA_BASE_URL` at
+wherever Ollama actually runs on that host (its LAN IP, or `host.docker.internal`
+if that host uses standard Docker Desktop).
 
 Base path: `/api`
 
@@ -302,6 +360,7 @@ On failure a single `{"event": "ERROR", "message": "..."}` op is emitted instead
 | Dev server killed with `exit 137` | Out of memory — lower `OLLAMA_NUM_CTX` (see tuning) |
 | Blank diagram / `ERROR` op returned | Model produced no tool calls; rephrase the prompt. The builder already retries once automatically |
 | Can't reach model | Ensure Ollama is running (`ollama list`) and `OLLAMA_BASE_URL` is correct |
+| Container: `Connection refused` to Ollama | Host Ollama is bound to `127.0.0.1` only, or `OLLAMA_BASE_URL` uses the wrong host address. Start Ollama with `OLLAMA_HOST=0.0.0.0:11434 ollama serve` (quit the menu-bar app first) and use the correct host address for your runtime (see [Deployment](#deployment) — e.g. `192.168.5.2` for Rancher Desktop/Lima) |
 | `Event from an unknown agent` logs | Benign — silenced by default; it's the critic seeing the builder's shared-session events |
 
 ---

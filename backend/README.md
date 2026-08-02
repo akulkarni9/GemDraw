@@ -21,6 +21,7 @@ FastAPI service that turns natural-language prompts into architecture diagrams u
 ```
 backend/
 ├── requirements.txt
+├── Dockerfile                  # production image (python:3.13-slim, uvicorn)
 ├── .env / .env.example        # DATABASE_URL, OLLAMA_* settings
 └── app/
     ├── main.py                # FastAPI app, lifespan migrations, log config
@@ -74,10 +75,13 @@ Loaded by `app/config.py` from `backend/.env` (all env-overridable):
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower = more deterministic layouts |
 | `OLLAMA_NUM_PREDICT` | `16384` | Max generation tokens (forwarded to Ollama) |
 | `OLLAMA_NUM_CTX` | `131072` | Context window (forwarded to Ollama) |
+| `CORS_ORIGINS` | `""` | Comma-separated extra browser origins allowed by CORS (localhost/127.0.0.1 on any port are always allowed) |
 
----
-
-## How generation works
+> **Deployment / reaching a host Ollama from a container:** set `OLLAMA_BASE_URL`
+> to the address your Docker runtime exposes the host at — `http://host.docker.internal:11434`
+> for Docker Desktop, or `http://192.168.5.2:11434` for Rancher Desktop/Lima/Colima
+> — and start Ollama with `OLLAMA_HOST=0.0.0.0:11434 ollama serve` so it binds all
+> interfaces. See the [root README Deployment section](../README.md#deployment).
 
 `app/services/agent_diagram.py` is the core. Each ADK **tool maps 1:1 to a frontend drawing event**; ADK auto-generates a typed schema from every function so the model must emit valid, named-argument calls.
 
@@ -139,4 +143,5 @@ data: {"event": "DIAGRAM_ID", "id": "<uuid>"}
 | Dev server killed (`exit 137`) | Out of memory — lower `OLLAMA_NUM_CTX` (e.g. `32768`) |
 | Blank diagram / `ERROR` op | Model produced no tool calls; rephrase. Builder already retries once |
 | Can't reach model | Ensure Ollama is running (`ollama list`) and `OLLAMA_BASE_URL` is correct |
+| Container: `Connection refused` to Ollama | Bind Ollama to all interfaces (`OLLAMA_HOST=0.0.0.0:11434 ollama serve`, quit the menu-bar app first) and set `OLLAMA_BASE_URL` to the right host address for your runtime (e.g. `192.168.5.2` for Rancher Desktop/Lima) |
 | `Event from an unknown agent` logs | Benign — the critic seeing the builder's shared-session events (silenced by default) |
