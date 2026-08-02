@@ -9,8 +9,38 @@ interface Props {
   onDetailLevelChange: (level: DetailLevel) => void
 }
 
+type Difficulty = 'Easy' | 'Medium' | 'Difficult'
+
+const SUGGESTIONS: { level: Difficulty; color: string; prompts: string[] }[] = [
+  {
+    level: 'Easy',
+    color: '#34d399',
+    prompts: [
+      'Design a simple URL shortener service',
+      'Design a basic todo list web app',
+    ],
+  },
+  {
+    level: 'Medium',
+    color: '#fbbf24',
+    prompts: [
+      'Design a ride-sharing platform like Uber',
+      'Design an e-commerce checkout and payment system',
+    ],
+  },
+  {
+    level: 'Difficult',
+    color: '#f87171',
+    prompts: [
+      'Design a globally distributed video streaming platform like Netflix',
+      'Design a real-time collaborative document editor like Google Docs',
+    ],
+  },
+]
+
 export default function PromptBar({ onSubmit, loading, status, detailLevel, onDetailLevelChange }: Readonly<Props>) {
   const [value, setValue] = useState('')
+  const [openGroup, setOpenGroup] = useState<Difficulty | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSubmit() {
@@ -25,6 +55,12 @@ export default function PromptBar({ onSubmit, loading, status, detailLevel, onDe
       e.preventDefault()
       handleSubmit()
     }
+  }
+
+  function handleSuggestion(prompt: string) {
+    if (loading) return
+    onSubmit(prompt)
+    setValue('')
   }
 
   return (
@@ -71,6 +107,88 @@ export default function PromptBar({ onSubmit, loading, status, detailLevel, onDe
         </div>
         )
       })()}
+
+      {detailLevel === 'hld' && !value.trim() && !loading && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            padding: '0 2px',
+          }}
+        >
+          {SUGGESTIONS.map(group => {
+            const isOpen = openGroup === group.level
+            return (
+              <div key={group.level} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenGroup(isOpen ? null : group.level)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: '#1a1a2e',
+                    border: `1px solid ${group.color}55`,
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: group.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {group.level}
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      color: '#94a3b8',
+                      fontSize: 11,
+                      transform: isOpen ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.15s',
+                    }}
+                  >
+                    ▶
+                  </span>
+                </button>
+                {isOpen && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 4px 2px' }}>
+                    {group.prompts.map(prompt => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => handleSuggestion(prompt)}
+                        style={{
+                          background: '#161628',
+                          border: `1px solid ${group.color}44`,
+                          borderRadius: 999,
+                          padding: '5px 11px',
+                          fontSize: 12,
+                          color: '#cbd5e1',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div
         style={{

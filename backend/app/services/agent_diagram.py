@@ -291,6 +291,80 @@ def _critic_message(detail_level: str, parent_node_id: str | None) -> str:
     return base
 
 
+def _guess_node_type(node_id: str) -> str:
+    """Best-effort node type from an id when the model forgot to create it."""
+    s = node_id.lower()
+    if any(k in s for k in ("cache", "redis", "memcache")):
+        return "cache"
+    if any(k in s for k in ("queue", "kafka", "mq", "broker", "stream", "bus")):
+        return "queue"
+    if any(k in s for k in ("db", "database", "store", "postgres", "mysql", "mongo", "sql")):
+        return "database"
+    if any(k in s for k in ("gw", "gateway", "lb", "balancer", "proxy", "ingress")):
+        return "load_balancer"
+    if any(k in s for k in ("client", "browser", "user", "app", "frontend", "ui", "mobile", "web")):
+        return "client"
+    return "service"
+
+
+def _humanize(node_id: str) -> str:
+    return node_id.replace("_", " ").replace("-", " ").strip().title() or node_id
+
+
+def _referenced_ids(ops: list[dict[str, Any]]) -> list[Any]:
+    """Every shape id referenced by non-creation ops, in emission order."""
+    referenced: list[Any] = []
+    for op in ops:
+        event = op.get("event")
+        if event in ("CONNECT_NODES", "CREATE_RELATION"):
+            referenced += [op.get("fromId"), op.get("toId")]
+        elif event == "GROUP_NODES":
+            referenced += op.get("nodeIds") or []
+        elif event in ("MODIFY_NODE", "DELETE_NODE"):
+            referenced.append(op.get("id"))
+        elif event in ("ADD_FIELD", "ADD_METHOD"):
+            referenced.append(op.get("classId"))
+    return referenced
+
+
+def _finalize_ops(ops: list[dict[str, Any]], detail_level: str) -> list[dict[str, Any]]:
+    """Guarantee a renderable diagram from possibly-incomplete model output.
+
+    Local models sometimes emit edges/groups that reference nodes they never
+    created, or emit edges before the node exists. This synthesizes any missing
+    node/class and orders all creation ops ahead of edges/groups so the frontend
+    can bind arrows to shapes that already exist.
+    """
+    create_event = "CREATE_CLASS" if detail_level == "lld" else "CREATE_NODE"
+    created: set[str] = {
+        op["id"] for op in ops if op.get("event") == create_event and op.get("id")
+    }
+
+    synthesized: list[dict[str, Any]] = []
+    for ref in _referenced_ids(ops):
+        if not ref or ref in created:
+            continue
+        created.add(ref)
+        idx = len(synthesized)
+        x, y = 150 + (idx % 4) * 400, 100 + (idx // 4) * 250
+        if detail_level == "lld":
+            synthesized.append(
+                {"event": "CREATE_CLASS", "id": ref, "name": _humanize(ref), "x": x, "y": y,
+                 "stereotype": "class"}
+            )
+        else:
+            synthesized.append(
+                {"event": "CREATE_NODE", "id": ref, "type": _guess_node_type(ref),
+                 "label": _humanize(ref), "x": x, "y": y}
+            )
+
+    # Order: real creations, then synthesized creations, then everything else —
+    # preserving original relative order within each bucket.
+    creations = [op for op in ops if op.get("event") == create_event]
+    rest = [op for op in ops if op.get("event") != create_event]
+    return creations + synthesized + rest
+
+
 async def _run_agent(
     agent: LlmAgent, user_id: str, session_id: str, text: str, ops: list[dict[str, Any]], drained: int
 ) -> AsyncGenerator[dict[str, Any], None]:
@@ -322,8 +396,9 @@ async def run_agent_stream(
     await _session_service.create_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
 
     try:
-        # Builder pass.
-        async for op in _run_agent(
+        # Builder pass. Collect ops without streaming yet — we re-order and fill
+        # in missing nodes afterwards so edges always bind to existing shapes.
+        async for _op in _run_agent(
             builder,
             user_id,
             session_id,
@@ -331,12 +406,12 @@ async def run_agent_stream(
             ops,
             len(ops),
         ):
-            yield op
+            _ = _op
 
         # Local models sometimes reply DONE without calling any tool, leaving a
         # blank canvas. Retry once with a firmer nudge before giving up.
         if not ops:
-            async for op in _run_agent(
+            async for _op in _run_agent(
                 builder,
                 user_id,
                 session_id,
@@ -345,7 +420,7 @@ async def run_agent_stream(
                 ops,
                 len(ops),
             ):
-                yield op
+                _ = _op
 
         if not ops:
             yield {
@@ -355,7 +430,7 @@ async def run_agent_stream(
             return
 
         # Critic pass on the same session, so it sees the builder's tool calls.
-        async for op in _run_agent(
+        async for _op in _run_agent(
             critic,
             user_id,
             session_id,
@@ -363,6 +438,11 @@ async def run_agent_stream(
             ops,
             len(ops),
         ):
+            _ = _op
+
+        # Synthesize any referenced-but-missing nodes and order creations first,
+        # then stream the repaired op list to the client.
+        for op in _finalize_ops(ops, detail_level):
             yield op
     except Exception as exc:  # surface failures to the client instead of a dead stream
         yield {"event": "ERROR", "message": str(exc)}

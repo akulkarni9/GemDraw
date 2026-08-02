@@ -92,15 +92,38 @@ const groupNodes: OpHandler = (editor, op) => {
   const maxX = Math.max(...xs) + NODE_SIZE.w + 40
   const maxY = Math.max(...ys) + NODE_SIZE.h + 40
 
-  const frameId = createShapeId()
-  editor.createShape({
+  // Key the frame on its label so a re-emitted (or duplicate) group updates the
+  // same rectangle in place instead of stacking overlapping boxes.
+  const label = (op.label as string) || 'Group'
+  const frameId = createShapeId(`group_${label}`)
+  const patch = {
     id: frameId,
-    type: 'frame',
+    type: 'geo' as const,
     x: minX,
     y: minY,
-    props: { w: maxX - minX, h: maxY - minY, name: (op.label as string) || 'Group' },
-  })
-  editor.reparentShapes(childIds.filter(id => !!editor.getShape(id)), frameId)
+    props: {
+      geo: 'rectangle' as const,
+      w: maxX - minX,
+      h: maxY - minY,
+      // Transparent fill + dashed outline so it frames nodes without hiding them.
+      fill: 'none' as const,
+      dash: 'dashed' as const,
+      color: 'grey' as const,
+      size: 's' as const,
+      font: 'sans' as const,
+      labelColor: 'grey' as const,
+      verticalAlign: 'start' as const,
+      text: label,
+    },
+  }
+  if (editor.getShape(frameId)) {
+    editor.updateShape(patch)
+  } else {
+    editor.createShape(patch)
+  }
+  // Keep the frame behind the nodes it surrounds (no reparenting, so nodes stay
+  // independently selectable and fully visible on top).
+  editor.sendToBack([frameId])
 }
 
 const modifyNode: OpHandler = (editor, op) => {
