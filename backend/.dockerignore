@@ -1,0 +1,12 @@
+.venv/
+.venv313/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+README.md
+pyrightconfig.json

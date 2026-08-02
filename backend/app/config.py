@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     ollama_temperature: float = 0.2
     ollama_num_predict: int = 16384
     ollama_num_ctx: int = 131072
+    # Comma-separated extra browser origins allowed by CORS, e.g.
+    # "https://gemdraw.example.com". localhost/127.0.0.1 are always allowed.
+    cors_origins: str = ""
 
     @field_validator("database_url")
     @classmethod
@@ -18,6 +21,10 @@ class Settings(BaseSettings):
         if not value:
             raise ValueError("DATABASE_URL must be set in the environment or .env file")
         return value
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 settings = Settings()

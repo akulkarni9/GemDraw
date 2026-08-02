@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.db.database import engine, Base
 from app.routes import generate, diagrams
+from app.config import settings
 
 # The builder+critic share one ADK session, so the critic's Runner logs a benign
 # "Event from an unknown agent" line for every event authored by the builder.
@@ -34,6 +35,7 @@ app = FastAPI(title="GemDraw API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],

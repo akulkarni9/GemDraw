@@ -1,0 +1,60 @@
+# Production stack for Coolify (or any Docker host).
+#
+# Deploy this as a single "Docker Compose" resource in Coolify. It builds the
+# backend and frontend images and runs Postgres alongside them. Ollama is NOT
+# included here because the Gemma model needs a GPU host — point OLLAMA_BASE_URL
+# at your Ollama instance (a GPU box, or an ollama service you run separately).
+#
+# In Coolify: set the environment variables below, expose the `frontend` service
+# on your domain, and let Coolify's proxy terminate HTTPS.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      # asyncpg driver URL built from the Postgres service above.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:?set OLLAMA_BASE_URL to your Ollama host}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:26b}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.2}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-16384}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-131072}
+      # Comma-separated extra browser origins allowed by CORS (optional — not
+      # needed when the frontend proxies /api same-origin via Nginx).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Same-origin: Nginx proxies /api to the backend, so the browser never
+        # needs to know the backend URL directly.
+        VITE_API_BASE: /api
+    restart: unless-stopped
+    ports:
+      - "80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
