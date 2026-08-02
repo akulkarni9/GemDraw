@@ -29,6 +29,7 @@ Everything runs on your own machine. No cloud LLM, no API keys.
 - [Performance & tuning](#performance--tuning)
 - [Troubleshooting](#troubleshooting)
 - [Design notes & caveats](#design-notes--caveats)
+- [License](#license)
 
 ---
 
@@ -382,3 +383,18 @@ On failure a single `{"event": "ERROR", "message": "..."}` op is emitted instead
 - **Streaming is per-model-turn**, not per-token — inherent to the tool-calling approach.
 - **No automated test suite** yet around the agent pipeline; validation is via live smoke tests.
 - **Local-first:** all inference runs on your machine through Ollama; nothing is sent to a hosted LLM.
+
+---
+
+## License
+
+GemDraw is licensed under the **Apache License 2.0** — see [LICENSE](LICENSE) and
+[NOTICE](NOTICE).
+
+> **Third-party note (tldraw):** the canvas SDK, [tldraw](https://tldraw.dev), is
+> **not** under Apache-2.0. It uses the tldraw license, which requires the
+> **"Made with tldraw" watermark** to remain visible **or** a separate commercial
+> (business) license to remove it. This applies whenever you distribute or deploy
+> GemDraw, independent of GemDraw's own license. All other dependencies (FastAPI,
+> Google ADK, LiteLLM, React, Vite, etc.) are under permissive licenses
+> (Apache-2.0 / MIT / BSD).

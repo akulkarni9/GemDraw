@@ -1,0 +1,23 @@
+GemDraw
+Copyright 2026 Ajay Kulkarni
+
+This product includes software developed by Ajay Kulkarni and the GemDraw
+contributors, licensed under the Apache License, Version 2.0.
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+This software depends on third-party components that are distributed under their
+own licenses. Notable terms that affect redistribution and deployment:
+
+* tldraw (https://tldraw.dev) — the canvas SDK is NOT under Apache-2.0. It is
+  licensed under the tldraw license, which requires the "Made with tldraw"
+  watermark to remain visible OR a separate commercial (business) license to
+  remove it. Complying with tldraw's terms is required when distributing or
+  deploying GemDraw, independent of GemDraw's own Apache-2.0 license.
+
+Other dependencies (FastAPI, Uvicorn, Google ADK, LiteLLM, SQLAlchemy, asyncpg,
+Pydantic, React, Vite, and their transitive dependencies) are distributed under
+permissive licenses (Apache-2.0, MIT, or BSD). Refer to each project's
+distribution for the full text of its license.
