@@ -23,18 +23,17 @@ export default function DiagramSidebar({ currentDiagramId, onSelect, onNew }: Re
   }, [open])
 
   return (
-    <>
-      <div
-        style={{
-          position: 'absolute',
-          top: 64,
-          left: 16,
-          zIndex: 500,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
+    <div
+      style={{
+        position: 'absolute',
+        top: 8,
+        left: 360,
+        zIndex: 500,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
         <button
           onClick={() => setOpen(o => !o)}
           style={{
@@ -123,15 +122,15 @@ export default function DiagramSidebar({ currentDiagramId, onSelect, onNew }: Re
             </div>
           )}
         </div>
-      </div>
 
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 100,
-            left: 16,
-            zIndex: 500,
+        {open && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: 8,
+              zIndex: 500,
             background: '#1a1a2e',
             border: '1.5px solid #334155',
             borderRadius: 10,
@@ -185,8 +184,8 @@ export default function DiagramSidebar({ currentDiagramId, onSelect, onNew }: Re
               </div>
             </button>
           ))}
-        </div>
-      )}
-    </>
+          </div>
+        )}
+      </div>
   )
 }
